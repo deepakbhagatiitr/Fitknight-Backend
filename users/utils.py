@@ -1,6 +1,10 @@
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
+<<<<<<< HEAD
 from .models import Notification, Group, ChatRoom, ChatMessage
+=======
+from .models import Notification
+>>>>>>> 4630e8e33d3f6fe53a6b491e28f899d040835f12
 from .serializers import NotificationSerializer
 
 def send_notification(user_id, notification_type, title, message, related_object_id=None):
@@ -62,6 +66,7 @@ def notify_group_suggestion(user_id, group_id):
 
 def notify_join_request(organizer_id, group_id, requester_name):
     """Send notification to group organizer about new join request"""
+<<<<<<< HEAD
     # Get group name
     try:
         group = Group.objects.get(id=group_id)
@@ -76,6 +81,19 @@ def notify_join_request(organizer_id, group_id, requester_name):
         )
     except Group.DoesNotExist:
         print(f"Error: Group {group_id} not found")
+=======
+    print(f"\n=== Sending Join Request Notification ===")
+    print(f"To organizer: {organizer_id}")
+    print(f"From user: {requester_name}")
+    
+    send_notification(
+        user_id=organizer_id,
+        notification_type='join_request',
+        title='New Join Request',
+        message=f'{requester_name} wants to join your group',
+        related_object_id=group_id
+    )
+>>>>>>> 4630e8e33d3f6fe53a6b491e28f899d040835f12
 
 def notify_group_chat(user_id, group_id):
     send_notification(
@@ -88,6 +106,7 @@ def notify_group_chat(user_id, group_id):
 
 def notify_request_response(user_id, group_id, accepted):
     """Send notification to user about their join request status"""
+<<<<<<< HEAD
     try:
         group = Group.objects.get(id=group_id)
         status = "accepted" if accepted else "rejected"
@@ -124,3 +143,26 @@ def notify_new_message(user_id, chat_id, sender_name):
         )
     except ChatRoom.DoesNotExist:
         print(f"Error: Chat room {chat_id} not found") 
+=======
+    status = "accepted" if accepted else "rejected"
+    print(f"\n=== Sending Request Response Notification ===")
+    print(f"To user: {user_id}")
+    print(f"Status: {status}")
+    
+    send_notification(
+        user_id=user_id,
+        notification_type='request_update',
+        title=f'Join Request {status.title()}',
+        message=f'Your request to join the group was {status}',
+        related_object_id=group_id
+    )
+
+def notify_new_message(user_id, chat_id, sender_name):
+    send_notification(
+        user_id=user_id,
+        notification_type='group_chat',
+        title='New Message',
+        message=f'New message from {sender_name}',
+        related_object_id=chat_id
+    ) 
+>>>>>>> 4630e8e33d3f6fe53a6b491e28f899d040835f12
