@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 
 from pathlib import Path
 from dotenv import load_dotenv
+import dj_database_url
 import os
 
 # Load environment variables from .env file
@@ -83,17 +84,32 @@ WSGI_APPLICATION = "fitness_backend.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': 'fitness_db',
+#         'USER': 'postgres',
+#         'PASSWORD': 'root',
+#         'HOST': 'localhost',
+#         'PORT': '5432',
+#     }
+# }
+
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'fitness_db',
-        'USER': 'postgres',
-        'PASSWORD': 'root',
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'NAME': os.getenv('DB_NAME'),        # Name of your database (from Render config)
+        'USER': os.getenv('DB_USER'),        # Username for the database (from Render config)
+        'PASSWORD': os.getenv('DB_PASSWORD'),# Password for the database (from Render config)
+        'HOST': os.getenv('DB_HOST'),        # Host URL for the Render DB
+        'PORT': os.getenv('DB_PORT'),        # Port (usually 5432 for PostgreSQL)
     }
 }
 
+# DATABASES = {
+#     'default': dj_database_url.parse(os.getenv("DATABASE_URL"))
+# }
 
 
 # Password validation
@@ -177,10 +193,6 @@ FCM_DJANGO_SETTINGS = {
     "DELETE_INACTIVE_DEVICES": True,
 }
 
-# Allow CORS for WebSocket connections
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",  # Your frontend URL
-]
 
 """
 Django settings for fitness_backend project.
@@ -264,16 +276,16 @@ WSGI_APPLICATION = "fitness_backend.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'fitness_db',
-        'USER': 'postgres',
-        'PASSWORD': 'root',
-        'HOST': 'localhost',
-        'PORT': '5432',
-    }
-}
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': 'fitness_db',
+#         'USER': 'postgres',
+#         'PASSWORD': 'root',
+#         'HOST': 'localhost',
+#         'PORT': '5432',
+#     }
+# }
 
 
 
@@ -318,9 +330,7 @@ STATIC_URL = "static/"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# Add media settings
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
@@ -358,7 +368,4 @@ FCM_DJANGO_SETTINGS = {
     "DELETE_INACTIVE_DEVICES": True,
 }
 
-# Allow CORS for WebSocket connections
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",  # Your frontend URL
-]
+
