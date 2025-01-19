@@ -10,21 +10,19 @@ class UserProfile(models.Model):
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     role = models.CharField(max_length=20, choices=ROLE_CHOICES)
-    phone_number = models.CharField(max_length=10)  # 10 digits only
-    user_location = models.CharField(max_length=100)  # User's personal location
+    phone_number = models.CharField(max_length=10)  
+    user_location = models.CharField(max_length=100)  
     profile_image = models.ImageField(
         upload_to='profile_images/',
         null=True,
         blank=True,
-        default='profile_images/hulk.jpg'
+        default='profile_images/profile.jpg'
     )
     
-    # Workout Buddy fields
     fitness_goals = models.TextField(null=True, blank=True)
     workout_preferences = models.JSONField(default=list, blank=True)
     availability = models.TextField(null=True, blank=True)
     
-    # Group Organizer fields
     group_name = models.CharField(max_length=100, null=True, blank=True)
     activity_type = models.CharField(max_length=100, null=True, blank=True)
     schedule = models.TextField(null=True, blank=True)
@@ -34,7 +32,7 @@ class UserProfile(models.Model):
 
 class Group(models.Model):
     organizer = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='organized_groups')
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=100, unique=True)
     activity_type = models.CharField(max_length=100)
     location = models.CharField(max_length=100)
     schedule = models.TextField()
@@ -42,6 +40,9 @@ class Group(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     members = models.ManyToManyField(UserProfile, related_name='joined_groups', blank=True)
+    
+    class Meta:
+        ordering = ['-created_at']
     
     def __str__(self):
         return self.name
@@ -53,7 +54,7 @@ class GroupJoinRequest(models.Model):
         ('rejected', 'Rejected')
     ]
     
-    id = models.AutoField(primary_key=True)  # This is the request_id
+    id = models.AutoField(primary_key=True)  
     group = models.ForeignKey(Group, on_delete=models.CASCADE)
     user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES)
@@ -61,28 +62,35 @@ class GroupJoinRequest(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
-        unique_together = ['group', 'user']  # Prevent duplicate requests
+        unique_together = ['group', 'user'] 
 
 class ChatRoom(models.Model):
-    ROOM_TYPES = [
+    ROOM_TYPE_CHOICES = [
         ('group', 'Group Chat'),
-        ('direct', 'Direct Message')
     ]
     
-    name = models.CharField(max_length=255)
-    room_type = models.CharField(max_length=10, choices=ROOM_TYPES, default='group')
-    group = models.OneToOneField(Group, on_delete=models.CASCADE, null=True, blank=True)
+    name = models.CharField(max_length=255, null=True, blank=True)
+    group = models.OneToOneField(
+        Group, 
+        on_delete=models.CASCADE, 
+        related_name='chat_room'
+    )
+    room_type = models.CharField(
+        max_length=10, 
+        choices=ROOM_TYPE_CHOICES,
+        default='group'
+    )
     participants = models.ManyToManyField(UserProfile, related_name='chat_rooms')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
-    class Meta:
-        unique_together = ['group']
+    def save(self, *args, **kwargs):
+        if not self.name and self.group:
+            self.name = f"Group Chat: {self.group.name}"
+        super().save(*args, **kwargs)
     
     def __str__(self):
-        if self.room_type == 'group':
-            return f"Group Chat: {self.group.name}"
-        return f"DM: {self.name}"
+        return f"Chat Room: {self.group.name}"
 
 class ChatMessage(models.Model):
     room = models.ForeignKey(ChatRoom, on_delete=models.CASCADE, related_name='messages')
@@ -90,7 +98,7 @@ class ChatMessage(models.Model):
     content = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     is_read = models.BooleanField(default=False)
-    
+
     class Meta:
         ordering = ['created_at']
     
@@ -115,4 +123,3 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"{self.notification_type} for {self.recipient.user.username}"
-

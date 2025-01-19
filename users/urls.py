@@ -4,14 +4,13 @@ from .views import (
     UserRegistrationView, UserLoginView, UserProfileDetailView,
     GroupViewSet, UserProfileListView, GroupJoinRequestView, 
     ManageJoinRequestView, ApproveRejectJoinRequestView,
-    ChatRoomViewSet, ChatMessageViewSet, GroupChatView,
-    DirectMessageView, NotificationViewSet, NotificationListView, MarkNotificationReadView,
+    ChatMessageViewSet, GroupChatView,
+    NotificationViewSet, NotificationListView, MarkNotificationReadView,
     TestNotificationView, ClearNotificationsView, LogoutView, UserGroupsView
 )
 
 router = DefaultRouter()
 router.register(r'groups', GroupViewSet, basename='group')
-router.register(r'chat/rooms', ChatRoomViewSet, basename='chatroom')
 router.register(r'notifications', NotificationViewSet, basename='notification')
 
 urlpatterns = [
@@ -26,11 +25,10 @@ urlpatterns = [
     path('groups/<int:group_id>/requests/<str:username>/', 
          ApproveRejectJoinRequestView.as_view(), 
          name='approve-reject-request'),
-    path('chat/group/<str:group_name>/', GroupChatView.as_view(), name='group-chat'),
+    path('chat/group/<int:group_id>/', GroupChatView.as_view(), name='group-chat'),
     path('chat/rooms/<int:room_id>/messages/', 
          ChatMessageViewSet.as_view({'get': 'list', 'post': 'create'}), 
          name='room-messages'),
-    path('chat/dm/<str:username>/', DirectMessageView.as_view(), name='direct-message'),
     path('notifications/', NotificationListView.as_view(), name='notification-list'),
     path('notifications/<int:pk>/read/', MarkNotificationReadView.as_view(), name='mark-notification-read'),
     path('test-notification/', TestNotificationView.as_view(), name='test-notification'),

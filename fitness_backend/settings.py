@@ -84,28 +84,28 @@ WSGI_APPLICATION = "fitness_backend.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': 'fitness_db',
-#         'USER': 'postgres',
-#         'PASSWORD': 'root',
-#         'HOST': 'localhost',
-#         'PORT': '5432',
-#     }
-# }
-
-
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME'),        # Name of your database (from Render config)
-        'USER': os.getenv('DB_USER'),        # Username for the database (from Render config)
-        'PASSWORD': os.getenv('DB_PASSWORD'),# Password for the database (from Render config)
-        'HOST': os.getenv('DB_HOST'),        # Host URL for the Render DB
-        'PORT': os.getenv('DB_PORT'),        # Port (usually 5432 for PostgreSQL)
+        'NAME': 'fitness_db',
+        'USER': 'postgres',
+        'PASSWORD': 'root',
+        'HOST': 'localhost',
+        'PORT': '5432',
     }
 }
+
+
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postitro-AN515-58:~/software/fitness_backend$ daphne -b 0.0.0.0 -p 8000 fitness_backend.asgi:applicatgresql',
+#         'NAME': os.getenv('DB_NAME'),        # Name of your database (from Render config)
+#         'USER': os.getenv('DB_USER'),        # Username for the database (from Render config)
+#         'PASSWORD': os.getenv('DB_PASSWORD'),# Password for the database (from Render config)
+#         'HOST': os.getenv('DB_HOST'),        # Host URL for the Render DB
+#         'PORT': os.getenv('DB_PORT'),        # Port (usually 5432 for PostgreSQL)
+#     }
+# }
 
 # DATABASES = {
 #     'default': dj_database_url.parse(os.getenv("DATABASE_URL"))
@@ -182,8 +182,32 @@ CHANNEL_LAYERS = {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
             "hosts": [("127.0.0.1", 6379)],
+            "capacity": 1500,
+            "expiry": 10,
+            "retry_on_timeout": True,
+            "socket_keepalive": True,
         },
     },
+}
+
+# Add Redis connection settings
+REDIS_CONFIG = {
+    'HOST': '127.0.0.1',
+    'PORT': 6379,
+    'DB': 0,
+    'RETRY_ON_TIMEOUT': True,
+    'SOCKET_TIMEOUT': 5,
+    'SOCKET_CONNECT_TIMEOUT': 5,
+    'RETRY_ON_ERROR': True,
+    'MAX_RETRIES': 3,
+}
+
+# Add WebSocket settings
+WEBSOCKET_SETTINGS = {
+    'RECONNECT_INTERVAL': 1,  # Seconds between reconnection attempts
+    'MAX_RETRIES': 5,        # Maximum number of reconnection attempts
+    'PING_INTERVAL': 30,     # Seconds between ping messages
+    'PING_TIMEOUT': 10       # Seconds to wait for pong response
 }
 
 # Firebase Cloud Messaging settings
@@ -192,6 +216,10 @@ FCM_DJANGO_SETTINGS = {
     "ONE_DEVICE_PER_USER": False,
     "DELETE_INACTIVE_DEVICES": True,
 }
+
+# Add these settings
+REDIS_HOST = '127.0.0.1'
+REDIS_PORT = 6379
 
 
 """

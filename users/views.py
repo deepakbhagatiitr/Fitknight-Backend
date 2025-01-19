@@ -16,6 +16,7 @@ from .utils import notify_join_request, notify_request_response, notify_new_mess
 from rest_framework import generics
 from django.contrib.auth.models import User  # Add this import at the top
 from django.db import models
+from django.db import IntegrityError
 
 class UserRegistrationView(APIView):
     permission_classes = [AllowAny]
@@ -60,36 +61,54 @@ class UserLoginView(APIView):
         print("Headers:", request.headers)
         print("Data:", request.data)
         
-        serializer = UserLoginSerializer(data=request.data)
-        if serializer.is_valid():
-            print("\nValidated Data:", serializer.validated_data)
-            user = serializer.validated_data['user']
-            token, created = Token.objects.get_or_create(user=user)
+        try:
+            # First check if user exists
+            username = request.data.get('username')
+            if not User.objects.filter(username=username).exists():
+                return Response({
+                    'status': 'error',
+                    'message': 'User is not registered. Please sign up first.'
+                }, status=status.HTTP_404_NOT_FOUND)
             
-            profile = user.profile
-            user_type = 'buddy' if profile.role == 'workout_buddy' else 'group'
-            
-            response_data = {
-                'status': 'success',
-                'message': 'Login successful',
-                'token': token.key,
-                'user': {
-                    'id': user.id,
-                    'username': user.username,
-                    'email': user.email,
-                    'userType': user_type,
+            # If user exists, proceed with login validation
+            serializer = UserLoginSerializer(data=request.data)
+            if serializer.is_valid():
+                print("\nValidated Data:", serializer.validated_data)
+                user = serializer.validated_data['user']
+                token, created = Token.objects.get_or_create(user=user)
+                
+                profile = user.profile
+                user_type = 'buddy' if profile.role == 'workout_buddy' else 'group'
+                
+                response_data = {
+                    'status': 'success',
+                    'message': 'Login successful',
+                    'token': token.key,
+                    'user': {
+                        'id': user.id,
+                        'username': user.username,
+                        'email': user.email,
+                        'userType': user_type,
+                    }
                 }
-            }
-            print("\n=== Login Response ===")
-            print("Status: 200 OK")
-            print("Response Data:", response_data)
-            response = Response(response_data, status=status.HTTP_200_OK)
-            response["Access-Control-Allow-Origin"] = "*"
-            return response
-        
-        print("\n=== Login Error ===")
-        print("Validation Errors:", serializer.errors)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                print("\n=== Login Response ===")
+                print("Status: 200 OK")
+                print("Response Data:", response_data)
+                return Response(response_data, status=status.HTTP_200_OK)
+            
+            # If credentials are invalid
+            return Response({
+                'status': 'error',
+                'message': 'Invalid username or password'
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
+        except Exception as e:
+            print("\n=== Login Error ===")
+            print("Error:", str(e))
+            return Response({
+                'status': 'error',
+                'message': 'An error occurred during login'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class UserProfileDetailView(APIView):
     permission_classes = [IsAuthenticated]
@@ -227,23 +246,21 @@ class GroupViewSet(viewsets.ModelViewSet):
             return Response(error_msg, status=status.HTTP_404_NOT_FOUND)
     
     def create(self, request, *args, **kwargs):
-        print("\n=== Group Create Request ===")
-        print("Headers:", request.headers)
-        print("User:", request.user)
-        print("Data:", request.data)
-        
         try:
-            response = super().create(request, *args, **kwargs)
-            print("\n=== Group Create Response ===")
-            print("Status: 201 Created")
-            print("Response Data:", response.data)
-            return response
+            # Add organizer to request data
+            request.data['organizer'] = request.user.profile.id
+            return super().create(request, *args, **kwargs)
+            
+        except IntegrityError:
+            return Response({
+                'status': 'error',
+                'error': 'A group with this name already exists'
+            }, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            error_msg = {'error': str(e)}
-            print("\n=== Group Create Error ===")
-            print("Status: 400 Bad Request")
-            print("Error:", error_msg)
-            return Response(error_msg, status=status.HTTP_400_BAD_REQUEST)
+            return Response({
+                'status': 'error',
+                'error': str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
     
     def perform_create(self, serializer):
         serializer.save()
@@ -699,178 +716,121 @@ class ApproveRejectJoinRequestView(APIView):
                 "message": str(e)
             }, status=status.HTTP_404_NOT_FOUND)
 
-class ChatRoomViewSet(viewsets.ModelViewSet):
-    serializer_class = ChatRoomSerializer
+class GroupChatView(APIView):
     permission_classes = [IsAuthenticated]
     
-    def get_queryset(self):
-        return ChatRoom.objects.filter(participants=self.request.user.profile)
-    
-    def perform_create(self, serializer):
-        room = serializer.save()
-        room.participants.add(self.request.user.profile)
+    def get(self, request, group_id):
+        """Get or create chat room for group"""
+        try:
+            # Get group and verify membership
+            group = Group.objects.get(id=group_id)
+            user_profile = request.user.profile
+            
+            # Check if user is member or organizer
+            if user_profile != group.organizer and user_profile not in group.members.all():
+                return Response({
+                    'status': 'error',
+                    'error': f'Must be member of {group.name} to access chat'
+                }, status=status.HTTP_403_FORBIDDEN)
+            
+            try:
+                # First try to get existing chat room
+                room = ChatRoom.objects.get(group=group)
+            except ChatRoom.DoesNotExist:
+                # If no chat room exists, create one
+                room = ChatRoom.objects.create(
+                    group=group,
+                    name=f"Group Chat: {group.name}",
+                    room_type='group'
+                )
+            
+            # Add user as participant if not already
+            if user_profile not in room.participants.all():
+                room.participants.add(user_profile)
+            
+            return Response({
+                'status': 'success',
+                'data': {
+                    'room_id': room.id,
+                    'group_id': group.id,
+                    'group_name': group.name,
+                    'message': f'Group chat ready'
+                }
+            })
+            
+        except Group.DoesNotExist:
+            return Response({
+                'status': 'error',
+                'error': f'Group not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            print(f"Chat room error: {str(e)}")  # Add logging
+            return Response({
+                'status': 'error',
+                'error': 'Failed to initialize chat room'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class ChatMessageViewSet(viewsets.ModelViewSet):
     serializer_class = ChatMessageSerializer
     permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
-        print("\n=== Get Chat Messages Request ===")
-        print("User:", self.request.user)
-        room_id = self.kwargs.get('room_id')
-        print("Room ID:", room_id)
-        
         try:
+            room_id = self.kwargs.get('room_id')
             room = get_object_or_404(ChatRoom, id=room_id)
-            print("Found Room:", room)
             
             # Verify user is a participant
             if self.request.user.profile not in room.participants.all():
-                raise serializers.ValidationError(
-                    "You must be a participant to view messages"
-                )
+                raise serializers.ValidationError({
+                    'status': 'error',
+                    'error': 'Must be a participant to view messages'
+                })
             
             # Mark messages as read
             unread_messages = room.messages.filter(
                 is_read=False
             ).exclude(sender=self.request.user.profile)
             unread_messages.update(is_read=True)
-            print("Marked messages as read")
             
-            messages = room.messages.all()
-            print("Total messages:", messages.count())
-            return messages
+            return room.messages.all()
             
         except Exception as e:
-            print("Error in get_queryset:", str(e))
+            print(f"Message query error: {str(e)}")  # Add logging
             raise
     
     def perform_create(self, serializer):
-        room_id = self.kwargs.get('room_id')
-        room = get_object_or_404(ChatRoom, id=room_id)
-        
-        # Create the message
-        message = serializer.save(
-            room=room,
-            sender=self.request.user.profile
-        )
-        
-        # Get current chat ID from headers
-        current_chat_id = self.request.headers.get('X-Current-Chat-Id')
-        
-        # Send notifications to all participants except sender
-        for participant in room.participants.all():
-            # Don't send notification to the sender
-            if participant.id != self.request.user.profile.id:
-                # Only send if participant isn't viewing this chat
-                if str(room.id) != current_chat_id:
+        try:
+            room_id = self.kwargs.get('room_id')
+            room = get_object_or_404(ChatRoom, id=room_id)
+            
+            # Verify user is a participant
+            if self.request.user.profile not in room.participants.all():
+                raise serializers.ValidationError({
+                    'status': 'error',
+                    'error': 'Must be a participant to send messages'
+                })
+            
+            # Create message
+            message = serializer.save(
+                room=room,
+                sender=self.request.user.profile
+            )
+            
+            # Notify other participants (removed current chat check)
+            for participant in room.participants.all():
+                # Don't notify the sender
+                if participant.id != self.request.user.profile.id:
                     notify_new_message(
                         user_id=participant.user.id,
                         chat_id=room.id,
-                        sender_name=self.request.user.username
+                        sender_name=self.request.user.username,
+                        message_content=message.content
                     )
-
-class GroupChatView(APIView):
-    permission_classes = [IsAuthenticated]
-    
-    def post(self, request, group_name):
-        print("\n=== Start Group Chat Request ===")
-        print("User:", request.user)
-        print("Group Name:", group_name)
-        
-        try:
-            group = Group.objects.get(name=group_name)
-            user_profile = request.user.profile
-            print("Found group:", group)
-            
-            # Check if user is member or organizer
-            if user_profile != group.organizer and user_profile not in group.members.all():
-                error_msg = f'Must be member of {group_name} to access chat'
-                print("Error:", error_msg)
-                return Response(
-                    {'error': error_msg},
-                    status=status.HTTP_403_FORBIDDEN
-                )
-            
-            # Get or create group chat room
-            room, created = ChatRoom.objects.get_or_create(
-                group=group,
-                room_type='group',
-                defaults={'name': f"Group Chat: {group_name}"}
-            )
-            print("Chat room:", "Created" if created else "Found existing")
-            
-            # Add current user as participant if not already added
-            if user_profile not in room.participants.all():
-                room.participants.add(user_profile)
-                print(f"Added {request.user.username} as participant")
-            
-            response_data = {
-                'room_id': room.id,
-                'message': f'Group chat for {group_name} ready'
-            }
-            print("Response:", response_data)
-            return Response(response_data)
-            
+                    print(f"Notification sent to {participant.user.username}")
+                    
         except Exception as e:
-            print("Error:", str(e))
-            return Response(
-                {'error': f'Error: {str(e)}'},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-class DirectMessageView(APIView):
-    permission_classes = [IsAuthenticated]
-    
-    def post(self, request, username):
-        print("\n=== Start Direct Message Request ===")
-        print("User:", request.user)
-        print("Target Username:", username)
-        
-        try:
-            other_user = UserProfile.objects.get(user__username=username)
-            current_user = request.user.profile
-            print("Found target user:", other_user)
-            
-            # Check if DM room exists
-            room = ChatRoom.objects.filter(
-                room_type='direct',
-                participants=current_user
-            ).filter(
-                participants=other_user
-            ).first()
-            
-            if room:
-                print("Found existing chat room:", room)
-            else:
-                print("Creating new chat room")
-                room = ChatRoom.objects.create(
-                    name=f"DM: {current_user.user.username} - {username}",
-                    room_type='direct'
-                )
-                room.participants.add(current_user, other_user)
-                print("Created new chat room:", room)
-            
-            response_data = {
-                'room_id': room.id,
-                'message': f'Chat room with {username} ready'
-            }
-            print("Response:", response_data)
-            return Response(response_data)
-            
-        except Exception as e:
-            print("Error:", str(e))
-            return Response(
-                {'error': f'Error: {str(e)}'}, 
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-    def options(self, request, *args, **kwargs):
-        response = Response()
-        response["Access-Control-Allow-Origin"] = "*"
-        response["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-        response["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
-        return response
+            print(f"Message creation error: {str(e)}")
+            raise
 
 class NotificationViewSet(viewsets.ModelViewSet):
     serializer_class = NotificationSerializer

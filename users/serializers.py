@@ -265,51 +265,18 @@ class GroupSerializer(serializers.ModelSerializer):
 
 class ChatMessageSerializer(serializers.ModelSerializer):
     sender_name = serializers.CharField(source='sender.user.username', read_only=True)
-    sender_image = serializers.SerializerMethodField()
-    
+    sender_image = serializers.ImageField(source='sender.profile_image', read_only=True)
+
     class Meta:
         model = ChatMessage
-        fields = ['id', 'room', 'sender', 'sender_name', 'sender_image', 
-                 'content', 'created_at', 'is_read']
-        read_only_fields = ['sender', 'is_read']
-    
-    def get_sender_image(self, obj):
-        if obj.sender.profile_image:
-            return obj.sender.profile_image.url
-        return None
+        fields = ['id', 'sender_name', 'sender_image', 'content', 'created_at', 'is_read']
+        read_only_fields = ['sender_name', 'sender_image', 'created_at', 'is_read']
 
 class ChatRoomSerializer(serializers.ModelSerializer):
-    last_message = serializers.SerializerMethodField()
-    unread_count = serializers.SerializerMethodField()
-    participants_info = serializers.SerializerMethodField()
-    
     class Meta:
         model = ChatRoom
-        fields = ['id', 'name', 'room_type', 'group', 'participants', 
-                 'participants_info', 'last_message', 'unread_count', 
-                 'created_at', 'updated_at']
-        read_only_fields = ['created_at', 'updated_at']
-    
-    def get_last_message(self, obj):
-        last_msg = obj.messages.last()
-        if last_msg:
-            return {
-                'content': last_msg.content,
-                'sender_name': last_msg.sender.user.username,
-                'created_at': last_msg.created_at
-            }
-        return None
-    
-    def get_unread_count(self, obj):
-        user = self.context['request'].user
-        return obj.messages.filter(is_read=False).exclude(sender__user=user).count()
-    
-    def get_participants_info(self, obj):
-        return [{
-            'id': p.user.id,
-            'username': p.user.username,
-            'profile_image': p.profile_image.url if p.profile_image else None
-        } for p in obj.participants.all()]
+        fields = ['id', 'group', 'participants']
+        read_only_fields = ['participants']
 
 class NotificationSerializer(serializers.ModelSerializer):
     class Meta:
