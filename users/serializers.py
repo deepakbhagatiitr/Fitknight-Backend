@@ -203,6 +203,14 @@ class UserProfileSerializer(serializers.ModelSerializer):
             user.email = user_data.get('email', user.email)
             user.save()
 
+        # Check if location is being updated
+        new_location = validated_data.get('user_location')
+        if new_location and instance.role == 'group_organizer':
+            # Update location for all groups where user is organizer
+            Group.objects.filter(organizer=instance).update(
+                location=new_location
+            )
+
         # Update UserProfile fields
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
@@ -215,6 +223,7 @@ class GroupSerializer(serializers.ModelSerializer):
     member_count = serializers.SerializerMethodField()
     is_organizer = serializers.SerializerMethodField()
     members = serializers.SerializerMethodField()
+    location = serializers.CharField(read_only=True)
 
     class Meta:
         model = Group
@@ -223,7 +232,7 @@ class GroupSerializer(serializers.ModelSerializer):
             'description', 'created_at', 'updated_at', 'organizer_name',
             'member_count', 'is_organizer', 'members'
         ]
-        read_only_fields = ['organizer', 'location', 'organizer_name']
+        read_only_fields = ['organizer', 'location']
 
     def get_members(self, obj):
         return [{
@@ -254,6 +263,7 @@ class GroupSerializer(serializers.ModelSerializer):
             # Remove organizer from validated_data if it exists
             validated_data.pop('organizer', None)
             
+            # Use organizer's location for the group
             group = Group.objects.create(
                 organizer=organizer_profile,
                 location=organizer_profile.user_location,
