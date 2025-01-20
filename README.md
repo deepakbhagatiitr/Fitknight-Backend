@@ -44,25 +44,9 @@ A Django REST API for a fitness buddy application that helps users find workout 
 ```bash
 # Register new user
 POST /api/register/
-{
-    "username": "john_doe",
-    "email": "john@example.com",
-    "password": "secure_password",
-    "password_confirm": "secure_password",
-    "role": "workout_buddy",  # or "group_organizer"
-    "phone_number": "1234567890",
-    "user_location": "Delhi",
-    "workout_preferences": ["yoga", "weightlifting"],
-    "fitness_goals": "Build strength and flexibility",
-    "availability": "Mornings and evenings"
-}
 
 # Login
 POST /api/login/
-{
-    "username": "john_doe",
-    "password": "secure_password"
-}
 
 # Logout
 POST /api/logout/
@@ -78,23 +62,12 @@ GET /api/profile/<username>/
 
 # Update profile
 PUT /api/profile/<username>/
-{
-    "user_location": "New Delhi",  # Updates group location if organizer
-    "workout_preferences": ["yoga", "running"],
-    "availability": "Weekends only"
-}
 ```
 
 ### Groups
 ```bash
 # Create group (Group Organizers only)
 POST /api/groups/
-{
-    "name": "Morning Yoga",
-    "activity_type": "Yoga",
-    "schedule": "Every morning at 6 AM",
-    "description": "Start your day with yoga"
-}
 
 # Get all groups
 GET /api/groups/
@@ -113,9 +86,6 @@ GET /api/groups/join-requests/
 
 # Approve/Reject request
 POST /api/groups/<id>/requests/<username>/
-{
-    "action": "approve"  # or "reject"
-}
 ```
 
 ### Chat
@@ -128,9 +98,6 @@ GET /api/chat/rooms/<room_id>/messages/
 
 # Send message
 POST /api/chat/rooms/<room_id>/messages/
-{
-    "content": "Hello everyone!"
-}
 ```
 
 ### Notifications
@@ -144,13 +111,14 @@ POST /api/notifications/<id>/read/
 # Clear all notifications
 POST /api/notifications/clear/
 ```
+I make this endpoint but not used it due to some issues
 
 ## WebSocket Connections
 
 ### Chat & Notifications Socket
 ```javascript
 // Connect to WebSocket
-const ws = new WebSocket(`ws://your-domain/ws/notifications/?token=${authToken}`);
+const ws = new WebSocket(`ws://10.81.93.48:8000/ws/notifications/?token=${authToken}`);
 
 // Listen for notifications
 ws.onmessage = (event) => {
@@ -160,49 +128,6 @@ ws.onmessage = (event) => {
         console.log(data.data.message);
     }
 };
-```
-
-## Models
-
-### UserProfile
-```python
-class UserProfile(models.Model):
-    user = models.OneToOneField(User)
-    role = models.CharField(choices=['workout_buddy', 'group_organizer'])
-    phone_number = models.CharField(max_length=10)
-    user_location = models.CharField(max_length=100)
-    profile_image = models.ImageField()
-    fitness_goals = models.TextField()
-    workout_preferences = models.JSONField()
-    availability = models.TextField()
-```
-
-### Group
-```python
-class Group(models.Model):
-    organizer = models.ForeignKey(UserProfile)
-    name = models.CharField(unique=True)
-    activity_type = models.CharField()
-    location = models.CharField()  # Synced with organizer's location
-    schedule = models.TextField()
-    description = models.TextField()
-    members = models.ManyToManyField(UserProfile)
-```
-
-### ChatRoom
-```python
-class ChatRoom(models.Model):
-    group = models.OneToOneField(Group)
-    participants = models.ManyToManyField(UserProfile)
-```
-
-### ChatMessage
-```python
-class ChatMessage(models.Model):
-    room = models.ForeignKey(ChatRoom)
-    sender = models.ForeignKey(UserProfile)
-    content = models.TextField()
-    is_read = models.BooleanField()
 ```
 
 ## Setup & Installation
@@ -238,8 +163,6 @@ daphne -b 0.0.0.0 -p 8000 fitness_backend.asgi:application
 ### Real-time Chat
 - WebSocket-based chat system
 - Automatic chat room creation for groups
-- Message notifications for offline users
-- Read/unread status tracking
 
 ### Notifications
 - Real-time notifications via WebSocket
@@ -284,4 +207,3 @@ Successful responses follow the format:
 - Channels (for WebSocket)
 - Redis (for real-time features)
 - PostgreSQL (database)
-
