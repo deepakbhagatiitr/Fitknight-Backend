@@ -13,12 +13,11 @@ websocket_urlpatterns = [
 class TokenAuthMiddleware(BaseMiddleware):
     async def __call__(self, scope, receive, send):
         try:
-            # Get token from query string
             query_string = scope.get('query_string', b'').decode()
             token = dict(x.split('=') for x in query_string.split('&')).get('token', None)
             
             if token:
-                # Get user from token
+                # get user from token
                 user = await self.get_user_from_token(token)
                 scope['user'] = user
             else:

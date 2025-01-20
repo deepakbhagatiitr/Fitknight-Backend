@@ -19,7 +19,7 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             print(f"User: {self.user.username}")
             print(f"Group: {self.notification_group_name}")
             
-            # Add to notification group
+            # adding to notification group
             await self.channel_layer.group_add(
                 self.notification_group_name,
                 self.channel_name
@@ -39,7 +39,7 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             print(f"User: {self.user.username}")
             print(f"Event: {event}")
             
-            # Send notification to WebSocket
+            # sending notification to WebSocket
             await self.send(text_data=json.dumps({
                 'type': 'notification',
                 'data': event['data']
@@ -55,7 +55,7 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             print(f"User: {self.user.username}")
             print(f"Code: {close_code}")
             
-            # Remove from notification group
+            # removing from notification group
             await self.channel_layer.group_discard(
                 self.notification_group_name,
                 self.channel_name
@@ -67,7 +67,7 @@ class NotificationConsumer(AsyncWebsocketConsumer):
         """Send periodic pings to keep connection alive"""
         while True:
             try:
-                await asyncio.sleep(30)  # Send ping every 30 seconds
+                await asyncio.sleep(30) 
                 await self.send(text_data=json.dumps({"type": "ping"}))
             except Exception:
                 break

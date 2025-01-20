@@ -10,7 +10,6 @@ https://docs.djangoproject.com/en/5.0/howto/deployment/asgi/
 import os
 import django
 
-# Set up Django settings before importing other modules
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'fitness_backend.settings')
 django.setup()
 

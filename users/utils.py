@@ -5,12 +5,7 @@ from .serializers import NotificationSerializer
 
 def send_notification(user_id, notification_type, title, message, related_object_id=None):
     try:
-        print(f"\n=== Creating Notification ===")
-        print(f"User ID: {user_id}")
-        print(f"Type: {notification_type}")
-        print(f"Message: {message}")
         
-        # Create notification
         notification = Notification.objects.create(
             recipient_id=user_id,
             notification_type=notification_type,
@@ -19,13 +14,11 @@ def send_notification(user_id, notification_type, title, message, related_object
             related_object_id=related_object_id
         )
         
-        # Get channel layer
         channel_layer = get_channel_layer()
         if not channel_layer:
             print("Error: Could not get channel layer")
             return
             
-        # Send to WebSocket
         group_name = f"notifications_{user_id}"
         async_to_sync(channel_layer.group_send)(
             group_name,
@@ -39,7 +32,6 @@ def send_notification(user_id, notification_type, title, message, related_object
     except Exception as e:
         print(f"Error sending notification: {str(e)}")
 
-# Utility functions for specific notification types
 def notify_buddy_match(user_id, matched_buddy_id):
     send_notification(
         user_id=user_id,
@@ -63,7 +55,6 @@ def notify_join_request(organizer_id, group_id, requester_name):
     try:
         group = Group.objects.get(id=group_id)
         
-        # Only send notification to the organizer
         if group.organizer.user.id == organizer_id:
             message = f"{requester_name} wants to join your group {group.name}"
             
@@ -113,14 +104,13 @@ def notify_new_message(user_id, chat_id, sender_name, message_content):
     """Send group chat message notification"""
     try:
         chat_room = ChatRoom.objects.get(id=chat_id)
-        # Format the message as "sender: message"
         message = f"{sender_name}: {message_content}"
             
         send_notification(
             user_id=user_id,
             notification_type='group_chat',
             title=f'New message in {chat_room.group.name}',
-            message=message,  # This will show as "john: Hello everyone!"
+            message=message,
             related_object_id=chat_id
         )
         print(f"Chat notification sent to user {user_id}")

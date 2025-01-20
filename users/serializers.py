@@ -16,13 +16,13 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         style={'input_type': 'password'}
     )
     
-    # Profile fields
+    # profile fields
     role = serializers.ChoiceField(choices=UserProfile.ROLE_CHOICES)
     profile_image = serializers.ImageField(required=False)
     phone_number = serializers.CharField(required=True, max_length=10)
     user_location = serializers.CharField(required=True, max_length=100)
     
-    # Workout Buddy fields
+    # workout buddy fields
     fitness_goals = serializers.CharField(required=False, allow_blank=True)
     workout_preferences = serializers.ListField(
         child=serializers.CharField(),
@@ -31,12 +31,11 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     )
     availability = serializers.CharField(required=False, allow_blank=True)
     
-    # Group Organizer fields
+    # group organizer fields
     group_name = serializers.CharField(required=False, allow_blank=True)
     activity_type = serializers.CharField(required=False, allow_blank=True)
     schedule = serializers.CharField(required=False, allow_blank=True)
     
-    # Add description field
     description = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
@@ -55,18 +54,16 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         
         validate_password(data['password'])
         
-        # Validate phone number
+        # validating phone number
         phone = data.get('phone_number', '')
         if not phone.isdigit() or len(phone) != 10:
             raise serializers.ValidationError(
                 "Phone number must be exactly 10 digits."
             )
         
-        # Check required fields for all users
         if not data.get('user_location'):
             raise serializers.ValidationError("User location is required.")
         
-        # Validate role-specific fields
         if data['role'] == 'workout_buddy':
             if not data.get('workout_preferences'):
                 raise serializers.ValidationError(
@@ -83,13 +80,11 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
-        # Remove confirmation field and profile data
         validated_data.pop('password_confirm')
         role = validated_data.pop('role')
         phone_number = validated_data.pop('phone_number')
         user_location = validated_data.pop('user_location')
         
-        # Extract profile data
         profile_data = {
             'role': role,
             'phone_number': phone_number,
@@ -102,26 +97,21 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             'schedule': validated_data.pop('schedule', None),
         }
 
-        # Get description for group
         description = validated_data.pop('description', '')
 
-        # Handle profile image
         profile_image = validated_data.pop('profile_image', None)
         if profile_image:
             profile_data['profile_image'] = profile_image
-        # If no image provided, the default will be used automatically
+        #if no image provided, the default will be used automatically
 
-        # Create user
         user = User.objects.create_user(
             username=validated_data['username'],
             email=validated_data.get('email', ''),
             password=validated_data['password']
         )
 
-        # Create user profile
         profile = UserProfile.objects.create(user=user, **profile_data)
         
-        # If user is a group organizer, create their group automatically
         if role == 'group_organizer':
             Group.objects.create(
                 organizer=profile,
@@ -137,11 +127,9 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         ret = super().to_representation(instance)
         
-        # Add profile image URL to response
         if instance.profile.profile_image:
             ret['profile_image'] = instance.profile.profile_image.url
         
-        # Add group info for organizers
         if instance.profile.role == 'group_organizer':
             try:
                 group = instance.profile.organized_groups.first()
@@ -195,7 +183,6 @@ class UserProfileSerializer(serializers.ModelSerializer):
         read_only_fields = ['role']
 
     def update(self, instance, validated_data):
-        # Update User model fields
         user_data = validated_data.pop('user', {})
         if user_data:
             user = instance.user
@@ -203,15 +190,12 @@ class UserProfileSerializer(serializers.ModelSerializer):
             user.email = user_data.get('email', user.email)
             user.save()
 
-        # Check if location is being updated
         new_location = validated_data.get('user_location')
         if new_location and instance.role == 'group_organizer':
-            # Update location for all groups where user is organizer
             Group.objects.filter(organizer=instance).update(
                 location=new_location
             )
 
-        # Update UserProfile fields
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
@@ -260,10 +244,8 @@ class GroupSerializer(serializers.ModelSerializer):
             if organizer_profile.role != 'group_organizer':
                 raise serializers.ValidationError("Only group organizers can create groups")
                 
-            # Remove organizer from validated_data if it exists
             validated_data.pop('organizer', None)
             
-            # Use organizer's location for the group
             group = Group.objects.create(
                 organizer=organizer_profile,
                 location=organizer_profile.user_location,

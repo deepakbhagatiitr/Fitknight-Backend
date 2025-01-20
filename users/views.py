@@ -9,12 +9,12 @@ from django.contrib.auth import authenticate
 from rest_framework.authtoken.models import Token
 from .models import UserProfile, Group, GroupJoinRequest, ChatRoom, ChatMessage, Notification
 from rest_framework import viewsets
-import json  # Add this import at the top
-from rest_framework import serializers  # Add this import
+import json 
+from rest_framework import serializers  
 from rest_framework.decorators import action
 from .utils import notify_join_request, notify_request_response, notify_new_message, notify_buddy_match, notify_group_suggestion
 from rest_framework import generics
-from django.contrib.auth.models import User  # Add this import at the top
+from django.contrib.auth.models import User
 from django.db import models
 from django.db import IntegrityError
 
@@ -23,11 +23,6 @@ class UserRegistrationView(APIView):
     parser_classes = (JSONParser, MultiPartParser, FormParser)
     
     def post(self, request):
-        print("\n=== Registration Request ===")
-        print("Headers:", request.headers)
-        print("Content Type:", request.content_type)
-        print("Data:", request.data)
-        print("Files:", request.FILES)
         
         serializer = UserRegistrationSerializer(data=request.data)
         if serializer.is_valid():
@@ -43,13 +38,9 @@ class UserRegistrationView(APIView):
                     'role': user.profile.role,
                 }
             }
-            print("\n=== Registration Response ===")
-            print("Status: 201 Created")
-            print("Response Data:", response_data)
+
             return Response(response_data, status=status.HTTP_201_CREATED)
-        
-        print("\n=== Registration Error ===")
-        print("Validation Errors:", serializer.errors)
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class UserLoginView(APIView):
@@ -57,12 +48,8 @@ class UserLoginView(APIView):
     parser_classes = (JSONParser,)
 
     def post(self, request):
-        print("\n=== Login Request ===")
-        print("Headers:", request.headers)
-        print("Data:", request.data)
         
         try:
-            # First check if user exists
             username = request.data.get('username')
             if not User.objects.filter(username=username).exists():
                 return Response({
@@ -70,10 +57,8 @@ class UserLoginView(APIView):
                     'message': 'User is not registered. Please sign up first.'
                 }, status=status.HTTP_404_NOT_FOUND)
             
-            # If user exists, proceed with login validation
             serializer = UserLoginSerializer(data=request.data)
             if serializer.is_valid():
-                print("\nValidated Data:", serializer.validated_data)
                 user = serializer.validated_data['user']
                 token, created = Token.objects.get_or_create(user=user)
                 
@@ -91,20 +76,16 @@ class UserLoginView(APIView):
                         'userType': user_type,
                     }
                 }
-                print("\n=== Login Response ===")
-                print("Status: 200 OK")
-                print("Response Data:", response_data)
+
                 return Response(response_data, status=status.HTTP_200_OK)
             
-            # If credentials are invalid
             return Response({
                 'status': 'error',
                 'message': 'Invalid username or password'
             }, status=status.HTTP_400_BAD_REQUEST)
             
         except Exception as e:
-            print("\n=== Login Error ===")
-            print("Error:", str(e))
+
             return Response({
                 'status': 'error',
                 'message': 'An error occurred during login'
@@ -116,10 +97,8 @@ class UserProfileDetailView(APIView):
     def get_user_by_id_or_username(self, identifier):
         """Get user by either ID or username"""
         try:
-            # First try to get by ID
             if identifier.isdigit():
                 return User.objects.get(id=identifier)
-            # If not numeric, try username
             return User.objects.get(username=identifier)
         except User.DoesNotExist:
             return None
@@ -187,67 +166,47 @@ class GroupViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
-        print("\n=== Group List GET Request ===")
-        print("Headers:", self.request.headers)
-        print("User:", self.request.user)
-        print("Query Params:", self.request.query_params)
+ 
         
         queryset = Group.objects.all()
         
-        # Filter by membership if specified
         membership = self.request.query_params.get('membership', None)
         if membership == 'member':
-            # Get groups where user is either a member or organizer
             queryset = queryset.filter(
                 models.Q(members=self.request.user.profile) | 
                 models.Q(organizer=self.request.user.profile)
             ).distinct()
         
-        # Filter by activity type
+        # Filtering by activity type
         activity_type = self.request.query_params.get('activity_type', None)
         if activity_type:
-            print("Filtering by activity_type:", activity_type)
             queryset = queryset.filter(activity_type=activity_type)
             
-        # Filter by location
+        # Filtering by location
         location = self.request.query_params.get('location', None)
         if location:
-            print("Filtering by location:", location)
             queryset = queryset.filter(location__icontains=location)
         
-        print("Total groups found:", queryset.count())
         return queryset
     
     def list(self, request, *args, **kwargs):
         response = super().list(request, *args, **kwargs)
-        print("\n=== Group List Response ===")
-        print("Status: 200 OK")
-        print("Count:", len(response.data))
-        print("Response Data:", response.data)
         return response
     
     def retrieve(self, request, *args, **kwargs):
-        print("\n=== Group Detail GET Request ===")
-        print("Headers:", request.headers)
-        print("User:", request.user)
-        print("Group ID:", kwargs.get('pk'))
+
         
         try:
             response = super().retrieve(request, *args, **kwargs)
-            print("\n=== Group Detail Response ===")
-            print("Status: 200 OK")
-            print("Response Data:", response.data)
+
             return response
         except Exception as e:
             error_msg = {'error': str(e)}
-            print("\n=== Group Detail Error ===")
-            print("Status: 404 Not Found")
-            print("Error:", error_msg)
+
             return Response(error_msg, status=status.HTTP_404_NOT_FOUND)
     
     def create(self, request, *args, **kwargs):
         try:
-            # Add organizer to request data
             request.data['organizer'] = request.user.profile.id
             return super().create(request, *args, **kwargs)
             
@@ -266,70 +225,46 @@ class GroupViewSet(viewsets.ModelViewSet):
         serializer.save()
     
     def update(self, request, *args, **kwargs):
-        print("\n=== Group Update Request ===")
-        print("Headers:", request.headers)
-        print("User:", request.user)
-        print("Group ID:", kwargs.get('pk'))
-        print("Data:", request.data)
         
         try:
             response = super().update(request, *args, **kwargs)
-            print("\n=== Group Update Response ===")
-            print("Status: 200 OK")
-            print("Response Data:", response.data)
+
             return response
         except Exception as e:
             error_msg = {'error': str(e)}
-            print("\n=== Group Update Error ===")
-            print("Status: 400 Bad Request")
-            print("Error:", error_msg)
+
             return Response(error_msg, status=status.HTTP_400_BAD_REQUEST)
     
     def destroy(self, request, *args, **kwargs):
-        print("\n=== Group Delete Request ===")
-        print("Headers:", request.headers)
-        print("User:", request.user)
-        print("Group ID:", kwargs.get('pk'))
+
         
         try:
             group = self.get_object()
             if group.organizer.user != request.user:
                 error_msg = {"error": "Only the organizer can delete the group"}
-                print("\n=== Group Delete Error ===")
-                print("Status: 403 Forbidden")
-                print("Error:", error_msg)
+   
                 return Response(error_msg, status=status.HTTP_403_FORBIDDEN)
             
             response = super().destroy(request, *args, **kwargs)
-            print("\n=== Group Delete Response ===")
-            print("Status: 204 No Content")
+
             return response
             
         except Exception as e:
             error_msg = {'error': str(e)}
-            print("\n=== Group Delete Error ===")
-            print("Status: 404 Not Found")
-            print("Error:", error_msg)
+
             return Response(error_msg, status=status.HTTP_404_NOT_FOUND)
 
 class UserProfileListView(APIView):
     permission_classes = [IsAuthenticated]
     
     def get(self, request):
-        print("\n=== Profile List GET Request ===")
-        print("Headers:", request.headers)
-        print("User:", request.user)
+
         
         try:
-            # Get current user's profile
             user_profile = request.user.profile
-            print(f"Current user preferences: {user_profile.workout_preferences}")
-            print(f"Current user location: {user_profile.user_location}")
-            
-            # Get all profiles except current user
+
             profiles = UserProfile.objects.exclude(user=request.user)
             
-            # Filter by role if specified (default to workout_buddy)
             role = request.query_params.get('role', 'workout_buddy')
             if role:
                 profiles = profiles.filter(role=role)
@@ -341,28 +276,23 @@ class UserProfileListView(APIView):
                     'reasons': []
                 }
                 
-                # Check location match
                 if profile.user_location and user_profile.user_location:
                     if profile.user_location.lower() == user_profile.user_location.lower():
                         match_details['score'] += 1
                         match_details['reasons'].append(f"Same location: {profile.user_location}")
                 
-                # Check workout preferences match
                 if user_profile.workout_preferences and profile.workout_preferences:
                     try:
-                        # Get user preferences
                         user_prefs = set([
                             pref.lower().strip() 
                             for pref in user_profile.workout_preferences
                         ])
                         
-                        # Get profile preferences
                         profile_prefs = set([
                             pref.lower().strip() 
                             for pref in profile.workout_preferences
                         ])
                         
-                        # Find common preferences
                         common_prefs = user_prefs.intersection(profile_prefs)
                         if common_prefs:
                             match_details['score'] += len(common_prefs)
@@ -370,22 +300,17 @@ class UserProfileListView(APIView):
                                 f"Shared interests: {', '.join(common_prefs)}"
                             )
                             
-                        print(f"Profile {profile.user.username}:")
-                        print(f"- User prefs: {user_prefs}")
-                        print(f"- Profile prefs: {profile_prefs}")
-                        print(f"- Common prefs: {common_prefs}")
+
                         
                     except Exception as e:
                         print(f"Error matching preferences: {str(e)}")
                 
-                # Add profile if there's at least one match
                 if match_details['score'] > 0:
                     profile_data = UserProfileSerializer(profile).data
                     profile_data['match_score'] = match_details['score']
                     profile_data['match_reasons'] = match_details['reasons']
                     matching_profiles.append(profile_data)
             
-            # Sort by match score
             matching_profiles.sort(key=lambda x: x['match_score'], reverse=True)
             
             response_data = {
@@ -414,7 +339,6 @@ class GroupJoinRequestView(APIView):
         try:
             group = Group.objects.get(pk=group_id)
             
-            # If user is organizer, show all requests for their group
             if request.user == group.organizer.user:
                 requests = GroupJoinRequest.objects.filter(group=group)
                 response_data = {
@@ -432,7 +356,6 @@ class GroupJoinRequestView(APIView):
                     } for req in requests]
                 }
             else:
-                # Show user's own request status for this group
                 request_obj = GroupJoinRequest.objects.filter(
                     group=group,
                     user=request.user.profile
@@ -474,14 +397,12 @@ class GroupJoinRequestView(APIView):
             group = Group.objects.get(pk=group_id)
             user_profile = request.user.profile
             
-            # First check if user is already a member
             if user_profile in group.members.all():
                 return Response({
                     "status": "error",
                     "message": "You are already a member of this group"
                 }, status=status.HTTP_400_BAD_REQUEST)
             
-            # Get existing request if any
             existing_request = GroupJoinRequest.objects.filter(
                 group=group,
                 user=user_profile
@@ -499,11 +420,10 @@ class GroupJoinRequestView(APIView):
                         "message": "Your request was already approved"
                     }, status=status.HTTP_400_BAD_REQUEST)
                 elif existing_request.status == 'rejected':
-                    # Update the existing rejected request to pending
                     existing_request.status = 'pending'
                     existing_request.save(update_fields=['status'])
                     
-                    # Send notification to group organizer
+                    # Sending notification to group organizer
                     notify_join_request(
                         organizer_id=group.organizer.user.id,
                         group_id=group.id,
@@ -515,14 +435,14 @@ class GroupJoinRequestView(APIView):
                         "message": "Join request sent successfully"
                     })
             else:
-                # Create new join request
+                # Creating new join request
                 GroupJoinRequest.objects.create(
                     group=group,
                     user=user_profile,
                     status='pending'
                 )
                 
-                # Send notification to group organizer
+                # Sending notification to group organizer
                 notify_join_request(
                     organizer_id=group.organizer.user.id,
                     group_id=group.id,
@@ -551,12 +471,10 @@ class ManageJoinRequestView(APIView):
     def get(self, request):
         try:
             if request.user.profile.role == 'group_organizer':
-                # For organizers - show requests for their groups
                 requests = GroupJoinRequest.objects.filter(
                     group__organizer=request.user.profile
                 )
             else:
-                # For workout buddies - show their own requests
                 requests = GroupJoinRequest.objects.filter(
                     user=request.user.profile
                 )
@@ -589,38 +507,27 @@ class ManageJoinRequestView(APIView):
             )
     
     def post(self, request, request_id):
-        print("\n=== Manage Join Request - Request ===")
-        print("Headers:", request.headers)
-        print("User:", request.user)
-        print("Request ID:", request_id)
-        print("Data:", request.data)
+
         
         try:
             join_request = GroupJoinRequest.objects.get(pk=request_id)
             
-            # Verify that the current user is the group organizer
             if request.user != join_request.group.organizer.user:
                 error_msg = {"error": "Only group organizer can manage join requests"}
-                print("\n=== Manage Join Request Error ===")
-                print("Status: 403 Forbidden")
-                print("Error:", error_msg)
+
                 return Response(error_msg, status=status.HTTP_403_FORBIDDEN)
             
             action = request.data.get('action')
             if action not in ['approve', 'reject']:
                 error_msg = {"error": "Invalid action. Use 'approve' or 'reject'"}
-                print("\n=== Manage Join Request Error ===")
-                print("Status: 400 Bad Request")
-                print("Error:", error_msg)
+
                 return Response(error_msg, status=status.HTTP_400_BAD_REQUEST)
             
             if action == 'approve':
                 join_request.status = 'approved'
                 join_request.save()
-                # Add user to group members
                 join_request.group.members.add(join_request.user)
                 
-                # Get updated group data
                 group_serializer = GroupSerializer(join_request.group, context={'request': request})
                 
                 response_data = {
@@ -651,16 +558,12 @@ class ManageJoinRequestView(APIView):
                     }
                 }
             
-            print("\n=== Manage Join Request Response ===")
-            print("Status: 200 OK")
-            print("Response Data:", response_data)
+
             return Response(response_data)
             
         except GroupJoinRequest.DoesNotExist:
             error_msg = {"error": "Join request not found"}
-            print("\n=== Manage Join Request Error ===")
-            print("Status: 404 Not Found")
-            print("Error:", error_msg)
+
             return Response(error_msg, status=status.HTTP_404_NOT_FOUND)
 
 class ApproveRejectJoinRequestView(APIView):
@@ -676,7 +579,6 @@ class ApproveRejectJoinRequestView(APIView):
                 status='pending'
             )
             
-            # Verify that the current user is the group organizer
             if request.user != group.organizer.user:
                 return Response({
                     "status": "error",
@@ -690,12 +592,10 @@ class ApproveRejectJoinRequestView(APIView):
                     "message": "Invalid action. Use 'approve' or 'reject'"
                 }, status=status.HTTP_400_BAD_REQUEST)
             
-            # Update request status and send notification
             is_approved = action == 'approve'
             join_request.status = 'approved' if is_approved else 'rejected'
             join_request.save()
             
-            # Send notification to the requester
             notify_request_response(
                 user_id=user_profile.user.id,
                 group_id=group.id,
@@ -722,11 +622,9 @@ class GroupChatView(APIView):
     def get(self, request, group_id):
         """Get or create chat room for group"""
         try:
-            # Get group and verify membership
             group = Group.objects.get(id=group_id)
             user_profile = request.user.profile
             
-            # Check if user is member or organizer
             if user_profile != group.organizer and user_profile not in group.members.all():
                 return Response({
                     'status': 'error',
@@ -734,17 +632,14 @@ class GroupChatView(APIView):
                 }, status=status.HTTP_403_FORBIDDEN)
             
             try:
-                # First try to get existing chat room
                 room = ChatRoom.objects.get(group=group)
             except ChatRoom.DoesNotExist:
-                # If no chat room exists, create one
                 room = ChatRoom.objects.create(
                     group=group,
                     name=f"Group Chat: {group.name}",
                     room_type='group'
                 )
             
-            # Add user as participant if not already
             if user_profile not in room.participants.all():
                 room.participants.add(user_profile)
             
@@ -764,7 +659,7 @@ class GroupChatView(APIView):
                 'error': f'Group not found'
             }, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
-            print(f"Chat room error: {str(e)}")  # Add logging
+            print(f"Chat room error: {str(e)}")  
             return Response({
                 'status': 'error',
                 'error': 'Failed to initialize chat room'
@@ -779,14 +674,12 @@ class ChatMessageViewSet(viewsets.ModelViewSet):
             room_id = self.kwargs.get('room_id')
             room = get_object_or_404(ChatRoom, id=room_id)
             
-            # Verify user is a participant
             if self.request.user.profile not in room.participants.all():
                 raise serializers.ValidationError({
                     'status': 'error',
                     'error': 'Must be a participant to view messages'
                 })
             
-            # Mark messages as read
             unread_messages = room.messages.filter(
                 is_read=False
             ).exclude(sender=self.request.user.profile)
@@ -795,7 +688,7 @@ class ChatMessageViewSet(viewsets.ModelViewSet):
             return room.messages.all()
             
         except Exception as e:
-            print(f"Message query error: {str(e)}")  # Add logging
+            print(f"Message query error: {str(e)}")  
             raise
     
     def perform_create(self, serializer):
@@ -803,22 +696,18 @@ class ChatMessageViewSet(viewsets.ModelViewSet):
             room_id = self.kwargs.get('room_id')
             room = get_object_or_404(ChatRoom, id=room_id)
             
-            # Verify user is a participant
             if self.request.user.profile not in room.participants.all():
                 raise serializers.ValidationError({
                     'status': 'error',
                     'error': 'Must be a participant to send messages'
                 })
             
-            # Create message
             message = serializer.save(
                 room=room,
                 sender=self.request.user.profile
             )
             
-            # Notify other participants (removed current chat check)
             for participant in room.participants.all():
-                # Don't notify the sender
                 if participant.id != self.request.user.profile.id:
                     notify_new_message(
                         user_id=participant.user.id,
@@ -856,7 +745,6 @@ class NotificationListView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # Get all notifications for the current user, ordered by newest first
         return Notification.objects.filter(
             recipient__user=self.request.user
         ).order_by('-created_at')
@@ -874,16 +762,14 @@ class MarkNotificationReadView(generics.UpdateAPIView):
 
 class TestNotificationView(APIView):
     def post(self, request):
-        # Test buddy match notification
         notify_buddy_match(
             user_id=request.user.id,
-            matched_buddy_id=1  # Example buddy ID
+            matched_buddy_id=1 
         )
         
-        # Test group suggestion
         notify_group_suggestion(
             user_id=request.user.id,
-            group_id=1  # Example group ID
+            group_id=1  
         )
         
         return Response({'status': 'test notifications sent'})
@@ -893,10 +779,8 @@ class ClearNotificationsView(APIView):
     
     def post(self, request):
         try:
-            # Get user profile
             user_profile = request.user.profile
             
-            # Delete all notifications for the current user
             deleted_count = Notification.objects.filter(
                 recipient=user_profile
             ).delete()[0]
@@ -918,7 +802,6 @@ class LogoutView(APIView):
 
     def post(self, request):
         try:
-            # Delete the user's auth token
             request.user.auth_token.delete()
             return Response({
                 'status': 'success',
@@ -935,10 +818,8 @@ class UserGroupsView(APIView):
     
     def get(self, request):
         try:
-            # Get user's profile
             user_profile = request.user.profile
             
-            # Get groups where user is either member or organizer
             groups = Group.objects.filter(
                 models.Q(members=user_profile) | 
                 models.Q(organizer=user_profile)

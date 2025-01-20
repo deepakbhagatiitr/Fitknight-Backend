@@ -7,7 +7,7 @@ class UsersConfig(AppConfig):
     name = "users"
 
     def ready(self):
-        # Create media directories if they don't exist
+        # Creating media directories if they don't exist
         media_root = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'media')
         profile_images_dir = os.path.join(media_root, 'profile_images')
         
