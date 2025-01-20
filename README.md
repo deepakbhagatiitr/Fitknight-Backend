@@ -31,14 +31,12 @@ A Django REST API for a fitness buddy application that helps users find workout 
 ### 3. Real-time Chat
 - Group chat functionality
 - Real-time message delivery
-- Message read status
 - Chat notifications
 
 ### 4. Real-time Notifications
 - Join requests
 - Request approvals/rejections
 - New chat messages
-- Group updates
 
 ## API Endpoints
 
