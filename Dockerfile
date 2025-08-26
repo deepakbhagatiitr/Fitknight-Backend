@@ -27,5 +27,5 @@ RUN python manage.py collectstatic --noinput || true
 # Expose port
 EXPOSE 8000
 
-# Start Daphne server
-CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "fitness_backend.asgi:application"]
+# Run migrations and then start Daphne server
+CMD ["/bin/sh", "-c", "python manage.py migrate && daphne -b 0.0.0.0 -p 8000 fitness_backend.asgi:application"]
