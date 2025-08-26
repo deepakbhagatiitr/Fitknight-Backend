@@ -19,7 +19,7 @@ urlpatterns = [
     path('login/', UserLoginView.as_view(), name='user-login'),
     path('profile/', UserProfileListView.as_view(), name='user-profile-list'),
     path('profile/<str:identifier>/', UserProfileDetailView.as_view(), name='user-profile-detail'),
-    path('groups/<int:group_id>/request-join/', GroupJoinRequestView.as_view(), name='request-join-group'),
+    path('groups/<int:group_id>/request-join/', GroupJoinRequestView.as_view(), name='request-join-group'), ## i used this for join request
     path('groups/join-requests/', ManageJoinRequestView.as_view(), name='list-join-requests'),
     path('groups/<int:group_id>/join-request/', GroupJoinRequestView.as_view(), name='request-join-group'),
     path('groups/<int:group_id>/requests/<str:username>/', 
